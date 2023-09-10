@@ -10,182 +10,84 @@ namespace Exercise0007
         {
             
         }
-
     }
 
-
-    public class SongCollectionPlayer
+    public class SongPlayer
     {
+        List<Song> songs;
+        int index = 0;
+        bool currentlyPlaying = false;
+        int time;
 
-    }
-
-    public class AlbumPlayer
-    {
-
-    }
-
-    public class PlaylistPlayer
-    {
-
-    }
-
-    public abstract class MusicEntry
-    {
-        string name;
-        List<string> genre;
-
-        public MusicEntry(string name, ICollection<string> genre)
+        public bool PlayAndStop()
         {
-            this.name = name;
-            this.genre = new List<string>();
-            this.genre.AddRange(genre);
-        }        
-        public MusicEntry(string name, string genre)
-        {
-            this.name = name;
-            this.genre = new List<string>() { genre };
-        }
-    }
-
-    public class Artist : MusicEntry
-    {
-        public Artist(string name, ICollection<string> genre) : base(name, genre)
-        {
-
+            currentlyPlaying = currentlyPlaying ? false : true;
+            return currentlyPlaying;
         }
 
-        public Artist(string name, string genre) : base(name, genre)
+        public SongPlayer(List<Song> songs, int index)
         {
-
-        }
-    }
-
-    public class Song : MusicEntry
-    {
-        float duration;
-
-        public Song(string name, ICollection<string> genre, float duration) : base(name, genre)
-        {
-            this.duration = duration;
-        }
-        public Song(string name, string genre, float duration) : base(name, genre)
-        {
-            this.duration = duration;
-        }
-    }
-
-    public abstract class SongCollection : MusicEntry
-    { 
-        protected List<Song> songs;
-
-        protected SongCollection(string name, ICollection<string> genre) : base(name, genre)
-        {
-            songs = new List<Song>();
-        }
-        protected SongCollection(string name, string genre) : base(name, genre)
-        {
-            songs = new List<Song>();
+            this.songs = songs;
+            this.index = index;
         }
 
-        public abstract int Add(Song song);
-
-        public abstract int Remove(int i);
-
-        public Song GetCurrentSong(int i)
+        public Song Current()
         {
-            return songs[i];
+            return songs[index];
         }
 
-        public abstract Song GetNextSong(int i, out int res);
-
-        public abstract Song GetPreviousSong(int i, out int res);
-
-    }
-
-    public class Album : SongCollection
-    {
-        public Album(string name, ICollection<string> genre) : base(name, genre)
-        {
-
-        }
-
-        public Album(string name, string genre) : base(name, genre)
-        {
-
-        }
-
-        public override int Add(Song song)
-        {
-            songs.Add(song);
-            return songs.Count;
-        }
-
-        public override Song GetNextSong(int i,out int res)
+        public Song Next()
         {
             try
             {
-                res = i + 1;
-                Song song = songs[res];
+                index++;
+                return songs[index];
             }
-            catch 
+            catch (IndexOutOfRangeException)
             {
-                res = 0;
+                index = 0;
+                return songs[index];
             }
-            return songs[res];
         }
 
-        public override Song GetPreviousSong(int i, out int res)
+        public Song Previous()
         {
             try
             {
-                res = i - 1;
-                Song song = songs[res];
+                index--;
+                return songs[index];
             }
-            catch
+            catch (IndexOutOfRangeException)
             {
-                res = songs.Count - 1;
+                index = songs.Count - 1;
+                return songs[index];
             }
-            return songs[res];
-        }
-
-        public override int Remove(int i)
-        {
-            songs.RemoveAt(i);
-            return songs.Count;
         }
     }
 
-    public class Playlist : SongCollection
+
+    public class Song
     {
-        public Playlist(string name, ICollection<string> genre) : base(name, genre)
-        {
+        string artist;
+        string album;
+        string title;
+        string genre;
+        int duration;
 
+        public Song(string artist, string album, string title, string genre, int duration)
+        {
+            this.artist = artist;
+            this.album = album;
+            this.title = title;
+            this.genre = genre;
+            this.duration = duration;
         }
 
-        public Playlist(string name, string genre) : base(name, genre)
+        public string toString()
         {
-
+            return $"{title} by {artist}";
         }
 
-        public override int Add(Song song)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override Song GetNextSong(int i, out int res)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override Song GetPreviousSong(int i, out int res)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override int Remove(int i)
-        {
-            throw new NotImplementedException();
-        }
     }
 
 }
