@@ -53,7 +53,7 @@ namespace Exercise0007
             #endregion
 
             Configuration.DefaultConfiguration();
-            //UserInterface.CategorySelectionMenu();
+            UserInterface.CategorySelectionMenu();
 
         }
     }
@@ -140,42 +140,142 @@ namespace Exercise0007
 
         public void GenerateAlbums()
         {
-            Albums = new List<Album>();
-            //Songs.Select(x => new { x.album, x.artist }).Distinct().ToList().ForEach(x => Albums.Add(new Album(x.album, x.artist)));
+            /* Old
+            Songs.Select
+                (
+                    x => new { x.album, x.artist }
+                )
+                .Distinct()
+                .Select
+                (
+                    x => new Album(x.album, x.artist)
+                )
+                .ToList()
+                .ForEach
+                (
+                    x =>
+                    { 
+                        x.songs.AddRange
+                        (
+                            Songs.Where
+                            (
+                                y => y.album == x.title
+                            )
+                            .ToList()
+                        ); 
+                        Albums.Add(x); 
+                    }
+                );
+            */
 
-            var x = Songs.GroupBy(x => x.album).ToList();
-            foreach (var item in x)
-            {
-                
-            }
+            Albums = new List<Album>();
+            Albums.AddRange
+            (
+                Songs.GroupBy(x => x.album)
+                .Select
+                (
+                    group => new Album
+                    (
+                        group.Key,
+                        group.Select(x => x.artist).Distinct().FirstOrDefault()
+                    )
+                    {
+                        songs = group.Select(x => x).ToList() 
+                    }
+                )
+                .ToList()
+            );
         }
 
         public void GenerateArtists()
         {
+            /* Old
+            Songs.Select
+            (
+                x => new { x.artist }
+            )
+            .Distinct()
+            .Select
+            (
+                x => new Artist(x.artist)
+            )
+            .ToList()
+            .ForEach
+            (
+                x => 
+                { 
+                    x.albums.AddRange
+                    (
+                        Albums.Where
+                        (
+                            y => y.artist == x.name)
+                            .ToList()
+                        ); 
+                    Artists.Add(x); 
+                }
+            );
+            */
+
             Artists = new List<Artist>();
-            Songs.Select(x => new {x.artist}).Distinct().ToList().ForEach(x => Artists.Add(new Artist(x.artist)));
+            Artists.AddRange
+                (
+                    Albums.GroupBy
+                    (
+                        x => x.artist
+                    )
+                    .Select
+                    (
+                        group => new Artist(group.Key) { albums = group.Select(x => x).ToList() }
+                    ).ToList()
+                );
         }
+    }
+
+    public abstract class ChoiceMenu
+    {
+        public abstract ChoiceMenu Menu();
     }
 
     public static class UserInterface
     {
-
-        public static void ContentDisplay(ICollection<string> contents)
+        public static void ContentDisplay<T>(ICollection<T> contents)
         {
             int i = 1;
             foreach (var content in contents)
             {
-                Console.WriteLine($"{i} - {content}");
+                Console.WriteLine($"{i} - {content.ToString()}");
                 i++;
             }
         }
 
-        public static int ContentSelectionMenu(ICollection<string> contents)
+        //public static int ContentSelectionMenu(ICollection<string> contents)
+        //{
+        //    int input = -1;
+        //    do
+        //    {
+        //        Console.Clear();
+        //        ContentDisplay(contents);
+        //        SongPlayerDisplay();
+        //        Console.WriteLine("Seleziona indice corrispondente");
+        //        try
+        //        {
+        //            input = int.Parse(Console.ReadLine());
+        //            input--;
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            Debug.WriteLine(ex.ToString());
+        //        }
+        //    }
+        //    while (input > contents.Count - 1 || input < 0);
+        //    return input;
+        //}
+
+        public static T ContentSelectionMenu<T>(ICollection<T> contents)
         {
             int input = -1;
             do
             {
-                Console.Clear();
                 Console.Clear();
                 ContentDisplay(contents);
                 SongPlayerDisplay();
@@ -185,14 +285,18 @@ namespace Exercise0007
                     input = int.Parse(Console.ReadLine());
                     input--;
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Debug.WriteLine(ex.ToString());
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                    Console.WriteLine("Valore inserito non è numerico");
+                    Console.WriteLine("Premi qualsiasi tasto per continuare");
+                    Console.ResetColor();
+                    Console.ReadKey();
                 }
             }
             while (input > contents.Count - 1 || input < 0);
-
-            return input;
+            return contents.ElementAt(input);
         }
 
         public static void CategorySelectionMenu()
@@ -206,11 +310,15 @@ namespace Exercise0007
                 Console.WriteLine("B - per Visualizzare tutti gli Album");
                 Console.WriteLine("C - per Visualizzare tutti le Playlist");
                 Console.WriteLine("D - per Visualizzare tutte le Canzoni");
+                Console.WriteLine("E - per Visualizzare il Player");
+
                 input = Console.ReadKey().Key;
             }
             while ( input != ConsoleKey.A && 
                     input != ConsoleKey.B && 
                     input != ConsoleKey.C &&
+                    input != ConsoleKey.D &&
+                    input != ConsoleKey.E &&
                     input != ConsoleKey.D);
             UserInterfaceCommand(input);
         }
@@ -219,12 +327,12 @@ namespace Exercise0007
         {
             try
             {
-                string text = $"     Currently Playing : {SongPlayer.Instance.GetCurrentSong().toString()}     ";
+                string text = $"     { (SongPlayer.Instance.currentlyPlaying ? "Currently" : "Paused") } Playing : {SongPlayer.Instance.GetCurrentSong().FullInfo()}     ";
                 string spacing = "--------------------------------------------------------------------------------------------------------------------------------";
                 spacing = spacing.Remove(text.Length);
                 Console.WriteLine($"{spacing}\n{text}\n{spacing}");
             }
-            catch (NullReferenceException)
+            catch
             {
                 Console.WriteLine(  "--------------------------------------------------------------------\n" +
                                     "                   Currently not playing any song                   \n" +
@@ -236,78 +344,147 @@ namespace Exercise0007
         {
             ConsoleKey input;
             List<string> contents = new List<string>();
-            contents.AddRange(SongPlayer.Instance.songs.Select(x => new string(x.title)).ToList());
-            do
+            try
+            {
+                contents.AddRange(SongPlayer.Instance.songs.Select(x => new string(x.title)).ToList());
+                do
+                {
+                    Console.Clear();
+                    ContentDisplay(contents);
+                    SongPlayerDisplay();
+                    Console.WriteLine("N - per Selezionare la Canzone Successiva");
+                    Console.WriteLine("P - per Selezionare la Canzone Precedente");
+                    Console.WriteLine($"O - Per Mettere in {(SongPlayer.Instance.currentlyPlaying ? "Pausa" : "Play")} la Canzone");
+                    Console.WriteLine("BACK - Per Tornare al Menu Iniziale");
+                    input = Console.ReadKey().Key;
+                }
+                while ( input != ConsoleKey.N && 
+                        input != ConsoleKey.P && 
+                        input != ConsoleKey.O &&
+                        input != ConsoleKey.Backspace);
+                UserInterfaceCommand(input);
+            }
+            catch
             {
                 Console.Clear();
-                ContentDisplay(contents);
                 SongPlayerDisplay();
-                Console.WriteLine("N - per Selezionare la Canzone Successiva");
-                Console.WriteLine("P - per Selezionare la Canzone Precedente");
-                Console.WriteLine($"O - Per Mettere in {(SongPlayer.Instance.currentlyPlaying ? "Pausa" : "Play")} la Canzone");
-                input = Console.ReadKey().Key;
+                Console.BackgroundColor = ConsoleColor.Red;
+                Console.ForegroundColor = ConsoleColor.Black;
+                Console.WriteLine("Nessuna Canzone nel Player");
+                Console.WriteLine("Premi qualsiasi tasto per continuare");
+                Console.ResetColor();
+                Console.ReadKey();
+                CategorySelectionMenu();
             }
-            while ( input != ConsoleKey.N && 
-                    input != ConsoleKey.P && 
-                    input != ConsoleKey.O );
-            UserInterfaceCommand(input);
         }
+
+        public static void ContentSelectionArtist(ICollection<Artist> artists)
+        {
+            ContentSelectionAlbum(ContentSelectionMenu(artists).albums);
+        }
+
+        public static void ContentSelectionAlbum(ICollection<Album> albums)
+        {
+            ContentSelectionMusic(ContentSelectionMenu(albums).songs);
+        }
+
+        public static void ContentSelectionMusic(ICollection<Song> songs)
+        {
+            Song selectedSong = ContentSelectionMenu(songs);
+            SongPlayer.Instance.LoadMusic(songs);
+            SongPlayer.Instance.PlaySpecific(selectedSong);
+            SongPlayerMenu();
+        }       
 
         public static void UserInterfaceCommand(ConsoleKey input)
         {
             switch (input)
-            {   
-                
+            {
+
                 // 
                 case ConsoleKey.F1:
+                    {
+
+                    }
+                    break;
+                
+                // Escape program
+                case ConsoleKey.Escape:
+                    {
+
+                    }
+                    break;
+                
+                // Back to defualt menu
+                case ConsoleKey.Backspace:
+                    {
+                        CategorySelectionMenu();
+                    }
                     break;
 
-                
                 // All Artist Selection Menu
                 case ConsoleKey.A:
-                    int i = ContentSelectionMenu(DataBank.Instance.Artists.Select(x => new string(x.name)).ToList());
-                    i = ContentSelectionMenu(DataBank.Instance.Albums.Where(x => x.artist.Equals(DataBank.Instance.Artists[i].name)).Select(x => new string(x.title)).ToList());
-                    SongPlayer.Instance.LoadMusic(DataBank.Instance.Songs.Where(x => x.album.Equals(DataBank.Instance.Albums[i].title)).ToList());
-                    SongPlayerMenu();
-
+                    {
+                        ContentSelectionArtist(DataBank.Instance.Artists);
+                    }
                     break;
-                
+
                 // All Album Selection Menu
                 case ConsoleKey.B:
-                    ContentSelectionMenu(DataBank.Instance.Albums.Select(x => new string(x.title)).ToList());
+                    { 
+                        ContentSelectionAlbum(DataBank.Instance.Albums);
+                    }
                     break;
                 
                 // All Playlist Selection Menu
                 case ConsoleKey.C:
+                    {
+
+                    }
                     break;
 
                 // All Music Selection Menu
                 case ConsoleKey.D:
-                    
+                    {
+                        Song selectedSong = ContentSelectionMenu(DataBank.Instance.Songs);
+                        SongPlayer.Instance.LoadMusic(DataBank.Instance.Albums.Where(x => x.title.Equals(selectedSong.album)).FirstOrDefault().songs);
+                        SongPlayer.Instance.PlaySpecific(selectedSong);
+                        SongPlayerMenu();
+                    }
                     break;
 
                 // Song Player Menu
                 case ConsoleKey.E:
-                    SongPlayerMenu();
+                    {
+                        SongPlayerMenu();
+                    }
                     break;
 
                 // Next
                 case ConsoleKey.N:
-                    SongPlayer.Instance.Next();
+                    {
+                        SongPlayer.Instance.Next();
+                        SongPlayerMenu();
+                    }
                     break;
                 
                 // Previous
                 case ConsoleKey.P:
-                    SongPlayer.Instance.Previous();
+                    {
+                        SongPlayer.Instance.Previous();
+                        SongPlayerMenu();
+                    }
                     break;
                 
                 // Pause and Play
                 case ConsoleKey.O:
-                    SongPlayer.Instance.PlayAndStop();
+                    {
+                        SongPlayer.Instance.PlayAndStop();
+                        SongPlayerMenu();
+                    }
                     break;
             }
         }
-
     }
 
     public class SongPlayer
@@ -334,9 +511,8 @@ namespace Exercise0007
 
         public void LoadMusic(ICollection<Song> songs)
         {
-            index = 0;
+            index = -1;
             time = 0;
-            currentlyPlaying = true;
             this.songs = new List<Song>() { };
             this.songs.AddRange(songs);
         }
@@ -345,6 +521,13 @@ namespace Exercise0007
         {
             currentlyPlaying = currentlyPlaying ? false : true;
             return currentlyPlaying;
+        }
+
+        public int PlaySpecific(Song song)
+        {
+            currentlyPlaying = true;
+            index = songs.IndexOf(song);
+            return index;
         }
 
         public Song GetCurrentSong()
@@ -402,8 +585,13 @@ namespace Exercise0007
             this.duration = duration;
         }
 
-        public string toString()
+        public override string ToString()
         {
+            return title;
+        }
+
+        public string FullInfo()
+        { 
             return $"{title} from {album} by {artist}";
         }
 
@@ -421,11 +609,12 @@ namespace Exercise0007
         {
             this.title = title;
             this.artist = artist;
+            this.songs = new List<Song>();
         }
 
-        public string toString()
+        public override string ToString()
         {
-            return $"{title} by {artist}";
+            return title;
         }
 
     }
@@ -439,6 +628,13 @@ namespace Exercise0007
         public Artist(string name)
         {
             this.name = name;
+            this.albums = new List<Album>();
         }
+
+        public override string ToString()
+        {
+            return name;
+        }
+
     }
 }
